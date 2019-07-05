@@ -4,7 +4,7 @@ import sbtcrossproject.{crossProject, CrossType}
 val previousVersion = "0.1.0"
 
 inThisBuild(Def.settings(
-  crossScalaVersions := Seq("2.12.8", "2.10.7", "2.11.12", "2.13.0"),
+  crossScalaVersions := Seq("2.12.8", "2.10.7", "2.11.12", "2.13.0", "0.17.0-bin-SNAPSHOT"),
   scalaVersion := crossScalaVersions.value.head,
   version := "0.1.1-SNAPSHOT",
   organization := "org.portable-scala",
@@ -25,6 +25,15 @@ inThisBuild(Def.settings(
     "scm:git:git@github.com:portable-scala/portable-scala-reflect.git",
     Some("scm:git:git@github.com:portable-scala/portable-scala-reflect.git"))),
 ))
+
+def modifyIf[T](p: => Boolean)(f: T => T): T => T = v => if (p) f(v) else v
+def modifyIfInfer[T](p: => Boolean, f: T => T): T => T = v => if (p) f(v) else v
+
+def dottyJSSettings = List(
+)
+
+def scala2JVMSettings = List(
+)
 
 lazy val `portable-scala-reflect` = crossProject(JSPlatform, JVMPlatform)
   .in(file("."))
@@ -65,7 +74,13 @@ lazy val `portable-scala-reflect` = crossProject(JSPlatform, JVMPlatform)
   )
   .jvmSettings(
     // Macros
-    libraryDependencies += scalaOrganization.value % "scala-reflect" % scalaVersion.value,
+    libraryDependencies := {
+      val v = libraryDependencies.value
+      val scalaOrgV = scalaOrganization.value
+      val scalaVersionV = scalaVersion.value
+      if (!isDotty.value) v :+ scalaOrgV % "scala-reflect" % scalaVersionV
+      else v
+    },
 
     // Speed up compilation a bit. Our .java files do not need to see the .scala files.
     compileOrder := CompileOrder.JavaThenScala,
@@ -73,3 +88,30 @@ lazy val `portable-scala-reflect` = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test",
   )
   .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
+  .jsSettings(
+    // Enable the Scala.js back-end of dotty.
+    scalacOptions := {
+      val opts = scalacOptions.value
+      if (isDotty.value) opts :+ "-scalajs" else opts 
+    },
+
+    libraryDependencies := {
+      val v = libraryDependencies.value
+      val scalaVersionV = scalaVersion.value
+      if (isDotty.value) v
+        // Remove the Scala.js compiler plugin for scalac
+      . filterNot(_.name.startsWith("scalajs-compiler"))
+      . map(_.withDottyCompat(scalaVersionV))
+
+        // Replace the JVM JUnit dependency by the Scala.js one
+      . filter(!_.name.startsWith("junit-interface"))
+      . :+(("org.scala-js" %% "scalajs-junit-test-runtime" % scalaJSVersion  % "test").withDottyCompat(scalaVersionV))
+      else v
+    },
+
+    // Typecheck the Scala.js IR found on the classpath
+    scalaJSLinkerConfig := {
+      val v = scalaJSLinkerConfig.value
+      if (isDotty.value) v.withCheckIR(true) else v
+    }
+  )
