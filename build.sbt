@@ -98,6 +98,7 @@ lazy val `portable-scala-reflect` = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies := {
       val v = libraryDependencies.value
       val scalaVersionV = scalaVersion.value
+      val scalaJSDottyVersion = "1.0.0-M7"
       if (isDotty.value) v
         // Remove the Scala.js compiler plugin for scalac
       . filterNot(_.name.startsWith("scalajs-compiler"))
@@ -105,7 +106,7 @@ lazy val `portable-scala-reflect` = crossProject(JSPlatform, JVMPlatform)
 
         // Replace the JVM JUnit dependency by the Scala.js one
       . filter(!_.name.startsWith("junit-interface"))
-      . :+(("org.scala-js" %% "scalajs-junit-test-runtime" % scalaJSVersion  % "test").withDottyCompat(scalaVersionV))
+      . :+(("org.scala-js" %% "scalajs-junit-test-runtime" % scalaJSDottyVersion  % "test").withDottyCompat(scalaVersionV))
       else v
     },
 
