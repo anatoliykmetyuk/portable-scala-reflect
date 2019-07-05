@@ -82,6 +82,12 @@ lazy val `portable-scala-reflect` = crossProject(JSPlatform, JVMPlatform)
       else v
     },
 
+    unmanagedSourceDirectories in Compile := {
+      val v = (unmanagedSourceDirectories in Compile).value
+      if (isDotty.value) v :+ (baseDirectory.value / "src-dotty")
+      else v :+ (baseDirectory.value / "src-scala2")
+    },
+
     // Speed up compilation a bit. Our .java files do not need to see the .scala files.
     compileOrder := CompileOrder.JavaThenScala,
 
@@ -105,8 +111,8 @@ lazy val `portable-scala-reflect` = crossProject(JSPlatform, JVMPlatform)
       . map(_.withDottyCompat(scalaVersionV))
 
         // Replace the JVM JUnit dependency by the Scala.js one
-      . filter(!_.name.startsWith("junit-interface"))
-      . :+(("org.scala-js" %% "scalajs-junit-test-runtime" % scalaJSDottyVersion  % "test").withDottyCompat(scalaVersionV))
+      . filter(d => !Set("junit-interface", "scalajs-junit").exists(d.name.startsWith))
+      .:+(("org.scala-js" %% "scalajs-junit-test-runtime" % scalaJSDottyVersion % "test").withDottyCompat(scalaVersionV))
       else v
     },
 
